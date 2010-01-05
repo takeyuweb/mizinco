@@ -1,0 +1,165 @@
+= mizinco
+
+== mizincoとは
+小さなCGIプログラムの構築をより手軽に行えるようにすることが目的のRackベースの簡易フレームワークです。
+Sinatra風味のDSLを提供します。
+
+  require 'mizinco'
+
+  get 'index' do
+    render :text => 'Hello, "Mizinco" World!!'
+  end
+
+  set :app_name, "hello world"
+  use Rack::ShowExceptions
+
+  run!
+
+Rackベースで、Rackミドルウェアを利用可能な他、適切なファイルを用意すればCGIの他にもFastCGIやrackup等でも動きます。
+
+== ルーティング
+mizincoは、HTTPメソッドと+_act+パラメータの値の組で実行するブロックを決定します。
+パスではなくパラメータを使ったのは、簡単な誰でも設置できるCGIプログラムを考えたとき、mod_rewrite等を使う必要のないこの方法の方が良いと判断したためです。
+mod_rewriteを理解している方は、.htaccessを使ってパスをパラメータに分解するなどすれば良いと思います。
+
+  get '' do
+    # Read
+  end
+
+  post '' do
+    # Create
+  end
+
+  put '' do
+    # Update
+  end
+
+  delete '' do
+    # Delete
+  end
+
+なお、+_act+パラメータの値は空でも"index"も同じとして扱います。
+また、POSTメソッドで+_method+パラメータを渡すことでHTTPメソッドオーバーライドを行います。
+
+== パラメータへのアクセス
+ブロック内で+params+を使ってアクセスできます。
+
+  get 'index' do
+    params['hoge'] # => 'fuga'
+  end
+
+== View
+Rails風の+render+メソッドを用意しています。
+省略した際には、ブロック実行後デフォルトのテンプレートを使います。
+
+  get 'index' do
+    render # views/index.html.erb
+  end
+
+明示的にテンプレートを指定することも出来ます。
+
+  get 'hoge' do
+    render :index # views/index.html.erb
+  end
+
+文字列を渡した時は、ファイル名として認識します。
+
+  get 'hoge' do
+    render 'path-to-file/fuga.erb' # views/path-to-file/fuga.erb
+  end
+
+直接文字列を表示する時には、+:text+か+:html+オプションを使います。
+
+  get 'text' do
+    render :text => '<b>Hello World</b>' # => "&lt;b&gt;Hello World&lt;/b&gt;"
+  end
+
+  get 'html' do
+    render :html => '<b>Hello World</b>' # => "<b>Hello World</b>"
+  end
+
++:inline+で文字列を渡すと、ERBテンプレートとして扱われます。
+
+  get 'index' do
+    render :inline => '<%= "Hello" %>'
+  end
+
+
+なお、テンプレートは標準で<tt>./views</tt>ディレクトリ下に配置しますが、他のディレクトリに設定することもできます。
+
+  set :template_root, File.join(File.dirname(__FILE__), 'templates')
+
+=== テンプレート内での変数の参照
+ブロック内で定義したインスタンス変数にアクセスできます。
+
+  get 'index' do
+    @message = 'Hello World!!'
+  end
+
+<tt>views/index.html.erb</tt>
+  <html>
+    <head></head>
+    <body>
+      <%= @message %>
+    </body>
+  </html>
+
+ヘルパメソッド+h+を使うことでエスケープされます。
+
+=== ヘルパメソッドの定義
+ヘルパメソッドを定義したモジュール（ヘルパモジュール）を作り、+helper+で使用を宣言します。
+
+  module MyHelperA
+    def a(str)
+      "a:#{str}"
+    end
+  end
+
+  module MyHelperB
+    def b(str)
+      "b:#{str}"
+    end
+  end
+
+  helper MyHelperA, MyHelperB
+
+  get 'index' do
+    render :inline => "<%=a 'Hello'%> <%=b 'World'%>"
+  end
+
+== リダイレクト
++redirect_to+メソッドを使います。
+
+シンボルを渡すと、指定したアクションにリダイレクトします。
+
+  get 'index'
+    redirect_to :target
+  end
+
+  get 'target'
+    render :text => 'ここはリダイレクト後のページです。'
+  end
+
+文字列を渡すと、URLとして解釈します。
+
+  get 'index'
+    redirect_to 'http://www.yahoo.co.jp/'
+  end
+
+デフォルトでは302リダイレクトですが、301リダイレクトを行うこともできます。
+
+  get 'old'
+    redirect_to :new, :permanent => true
+  end
+
+  get 'new'
+    render :text => 'ここは新しいページです。'
+  end
+
+== 作者
+
+Copyright 2009 (c) Yuichi Takeuchi, under MIT License
+
+Yuichi Takeuchi <mizincogrammer@gmail.com>
+
+http://d.hatena.ne.jp/mizincogrammer
