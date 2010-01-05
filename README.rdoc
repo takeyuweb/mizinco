@@ -20,7 +20,7 @@ Rackベースで、Rackミドルウェアを利用可能な他、適切なファ
 開発中なので不備も多いです。
 
 == ルーティング
-mizincoは、HTTPメソッドと+_act+パラメータの値の組で実行するブロックを決定します。
+mizincoは、HTTPメソッドと<tt>_act</tt>パラメータの値の組で実行するブロックを決定します。
 パスではなくパラメータを使ったのは、簡単な誰でも設置できるCGIプログラムを考えたとき、mod_rewrite等を使う必要のないこの方法の方が良いと判断したためです。
 mod_rewriteを理解している方は、.htaccessを使ってパスをパラメータに分解するなどすれば良いと思います。
 
@@ -40,18 +40,18 @@ mod_rewriteを理解している方は、.htaccessを使ってパスをパラメ
     # Delete
   end
 
-なお、+_act+パラメータの値は空でも"index"も同じとして扱います。
-また、POSTメソッドで+_method+パラメータを渡すことでHTTPメソッドオーバーライドを行います。
+なお、<tt>_act</tt>パラメータの値は空でも"index"も同じとして扱います。
+また、POSTメソッドで<tt>_method</tt>パラメータを渡すことでHTTPメソッドオーバーライドを行います。
 
 == パラメータへのアクセス
-ブロック内で+params+を使ってアクセスできます。
+ブロック内で<tt>params</tt>を使ってアクセスできます。
 
   get 'index' do
     params['hoge'] # => 'fuga'
   end
 
 == View
-Rails風の+render+メソッドを用意しています。
+Rails風の<tt>render</tt>メソッドを用意しています。
 省略した際には、ブロック実行後デフォルトのテンプレートを使います。
 
   get 'index' do
@@ -70,7 +70,7 @@ Rails風の+render+メソッドを用意しています。
     render 'path-to-file/fuga.erb' # views/path-to-file/fuga.erb
   end
 
-直接文字列を表示する時には、+:text+か+:html+オプションを使います。
+直接文字列を表示する時には、<tt>:text</tt>か<tt>:html</tt>オプションを使います。
 
   get 'text' do
     render :text => '<b>Hello World</b>' # => "&lt;b&gt;Hello World&lt;/b&gt;"
@@ -80,7 +80,7 @@ Rails風の+render+メソッドを用意しています。
     render :html => '<b>Hello World</b>' # => "<b>Hello World</b>"
   end
 
-+:inline+で文字列を渡すと、ERBテンプレートとして扱われます。
+<tt>:inline</tt>で文字列を渡すと、ERBテンプレートとして扱われます。
 
   get 'index' do
     render :inline => '<%= "Hello" %>'
@@ -106,10 +106,10 @@ Rails風の+render+メソッドを用意しています。
     </body>
   </html>
 
-ヘルパメソッド+h+を使うことでエスケープされます。
+ヘルパメソッド<tt>h</tt>を使うことでエスケープされます。
 
 === ヘルパメソッドの定義
-ヘルパメソッドを定義したモジュール（ヘルパモジュール）を作り、+helper+で使用を宣言します。
+ヘルパメソッドを定義したモジュール（ヘルパモジュール）を作り、<tt>helper</tt>で使用を宣言します。
 
   module MyHelperA
     def a(str)
@@ -130,7 +130,7 @@ Rails風の+render+メソッドを用意しています。
   end
 
 == リダイレクト
-+redirect_to+メソッドを使います。
+<tt>redirect_to</tt>メソッドを使います。
 
 シンボルを渡すと、指定したアクションにリダイレクトします。
 
