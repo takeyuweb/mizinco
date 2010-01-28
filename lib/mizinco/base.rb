@@ -37,9 +37,26 @@ end
 # end
 
 module Mizinco
+  class Error < StandardError; end
+  class FilterChainHaltedError < Error; end
+
   class Base
 
     class << self
+
+      def self.inherit_attr(*args)
+        args.each do |attr_name|
+          class_eval <<-EVAL
+            def #{attr_name}
+              if superclass.respond_to?(:#{attr_name})
+                superclass.#{attr_name} + @#{attr_name}
+              else
+                @#{attr_name}
+              end
+            end
+          EVAL
+        end
+      end
 
       def default_config_options
         {
@@ -50,9 +67,13 @@ module Mizinco
       end
       private :default_config_options
 
+      inherit_attr :helpers, :middleware, :before_filters, :after_filters
+
       def reset!
         @helpers = []
         @middleware = []
+        @before_filters = []
+        @after_filters = []
         @proc_list = { 
           :get => { },
           :post => { },
@@ -100,31 +121,29 @@ module Mizinco
       end
       
       def helper(*args)
-        args.each{ |arg| helpers << arg }
-      end
-      
-      def helpers
-        if superclass.respond_to?(:heplers)
-          superclass.helpers + @helpers
-        else
-          @helpers
-        end
-      end
-
-      def middleware
-        if superclass.respond_to?(:middleware)
-          superclass.middleware + @middleware
-        else
-          @middleware
-        end
+        args.each{ |arg| @helpers << arg }
       end
 
       def use(klass, *args, &block)
         @middleware << [klass, args, block]
       end
 
-      def run!
-        Rack::Handler::CGI.run self.new
+      def before(options = { }, &block)
+        options[:only] = [options[:only]].flatten.compact
+        options[:except] = [options[:except]].flatten.compact
+        
+        @before_filters << [options, block]
+      end
+
+      def after(options = { }, &block)
+        options[:only] = [options[:only]].flatten.compact
+        options[:except] = [options[:except]].flatten.compact
+        
+        @after_filters << [options, block]
+      end
+
+      def run!(&block)
+        Rack::Handler::CGI.run self.new(&block)
       end
 
       def config
@@ -170,7 +189,7 @@ module Mizinco
     private
     # HTTP Request Method :get/:post/:put/:get
     # ただし、POST時に_methodパラメータが指定されているときは
-    # そのメソッドとする
+    # HTTPメソッドオーバーライド
     def request_method
       return @request_method if @request_metho
       param_method = params['_method'].to_s.upcase
@@ -199,8 +218,24 @@ module Mizinco
       @act = act.to_sym
       proc = self.class.proc_list[request_method][@act]
       raise RuntimeError, "#{request_method.to_s.upcase} #{@act} is not defined." unless proc
-      ret = instance_eval(&proc)
-      render if @res.empty?
+
+      begin
+        self.class.before_filters.each do |options, block|
+          next unless options[:only].empty? || options[:only].include?(@act)
+          next unless options[:except].empty? || !options[:except].include?(@act)
+          raise FilterChainHaltedError.new unless instance_eval(&block)
+        end
+        ret = instance_eval(&proc)
+        render if @res.empty?
+
+        self.class.after_filters.each do |options, block|       
+          next unless options[:only].empty? || options[:only].include?(@act)
+          next unless options[:except].empty? || !options[:except].include?(@act)
+          raise FilterChainHaltedError.new unless instance_eval(&block)
+        end
+      rescue FilterChainHaltedError => e
+        #
+      end
       
       ! @res.empty?
     end
@@ -270,7 +305,7 @@ module Mizinco
         scope.instance_variable_set(:@_out_buf, original_out_buf)
       end
       
-      res.write output unless options.is_a?(Hash) && !options[:partial].to_s.empty?
+      res.write output if !options.is_a?(Hash) || options[:partial].to_s.empty?
 
       output
     end

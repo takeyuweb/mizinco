@@ -17,7 +17,7 @@ module Mizinco
   end
 end
 
-Mizinco::Delegator.delegate Mizinco::Application, :get, :post, :put, :delete, :set, :run!, :helper, :use, :reset!
+Mizinco::Delegator.delegate Mizinco::Application, :get, :post, :put, :delete, :set, :run!, :helper, :use, :reset!, :before, :after, :around
 
 include Mizinco::Delegator
 

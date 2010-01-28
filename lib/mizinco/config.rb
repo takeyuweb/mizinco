@@ -1,9 +1,25 @@
 module Mizinco
-  class Config
-    attr_accessor :app_name, :app_root, :template_root, :script_name
+  class Config < Hash
 
     def initialize(&block)
-      instance_eval(&block)
+      instance_eval(&block) if block_given?
+    end
+
+    def method_missing(m, *args)
+      raise ArgumentError.new("undefined method `#{m}' for #{inspect}:#{self.class}") if args.size > 1
+      if m.to_s =~ /^(.+)=$/
+        self[$1] = args.first
+      else
+        self[m.to_s]
+      end
+    end
+
+    def [](key)
+      super key.to_s
+    end
+
+    def []=(key, value)
+      super key.to_s, value
     end
 
   end
