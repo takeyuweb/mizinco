@@ -6,7 +6,6 @@ rescue LoadError
   require 'rubygems'
   require 'rack'
 end
-require 'rackrequestfix'
 require 'erb'
 require 'uri'
 
@@ -181,6 +180,19 @@ module Mizinco
     def call(env)
       @res = Rack::Response.new
       @req = Rack::Request.new(env)
+
+      if @req.env['rack.input'].respond_to?(:rewind) && !@req.env['rack.input'].respond_to?(:rewind_with_rescue)
+        @req.env['rack.input'].instance_eval do
+          alias :rewind_without_rescue :rewind
+          def rewind_with_rescue(*args)
+            rewind_without_rescue(*args)
+          rescue Errno::ESPIPE
+            # Handles exceptions raised by input streams that cannot be rewound
+          end
+          alias :rewind :rewind_with_rescue
+        end
+      end
+      
       act = @req['_act'] || 'index'
       execute(act)
       @res.finish
