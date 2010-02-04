@@ -235,7 +235,7 @@ module Mizinco
         self.class.before_filters.each do |options, block|
           next unless options[:only].empty? || options[:only].include?(@act)
           next unless options[:except].empty? || !options[:except].include?(@act)
-          raise FilterChainHaltedError.new unless instance_eval(&block)
+          raise FilterChainHaltedError.new if instance_eval(&block) == false
         end
         ret = instance_eval(&proc)
         render if @res.empty?
@@ -243,7 +243,7 @@ module Mizinco
         self.class.after_filters.each do |options, block|       
           next unless options[:only].empty? || options[:only].include?(@act)
           next unless options[:except].empty? || !options[:except].include?(@act)
-          raise FilterChainHaltedError.new unless instance_eval(&block)
+          raise FilterChainHaltedError.new if instance_eval(&block) == false
         end
       rescue FilterChainHaltedError => e
         #

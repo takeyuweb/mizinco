@@ -158,6 +158,49 @@ Rails風の<tt>render</tt>メソッドを用意しています。
     render :text => 'ここは新しいページです。'
   end
 
+== フィルタ
+Before / After Filter を利用できる。
+
+  before do
+    # アクションの前で実行されるブロック
+  end
+
+  after do
+    # アクションの後で実行されるブロック
+  end
+
+<tt>:only</tt>で実行したいアクションを、<tt>:except</tt>で実行しないアクションを指定できる。
+アクション名はSymbolか文字列で指定する。複数の時は配列を使える。
+
+  before :only => :hoge do
+    # hoge でのみ実行されるブロック
+  end
+
+  before :except => [:hoge, :fuga] do
+    # hoge/fuga 以外で実行されるブロック
+  end
+
+同じアクションに対して複数のフィルタが定義されている場合は、定義順に実行される。
+
+  before do
+    # 最初
+  end
+
+  before do
+    # 2番目
+  end
+
+明示的に <tt>false</tt> を返した場合、フィルタ・アクションの実行をそこで中断する。
+
+  before :except => :logout do
+    redirect_to :logout
+    false
+  end
+
+  before do
+    # logoutアクション以外ではこのフィルタまで処理がまわってこない
+  end
+
 == 作者
 
 Copyright 2009 (c) Yuichi Takeuchi, under MIT License
