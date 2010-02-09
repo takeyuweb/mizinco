@@ -109,6 +109,10 @@ describe 'Filterの' do
         before :only => :hoge do
           @messages << "hoge"
         end
+
+        before :only => { :hoge => :post } do
+          @messages << "post hoge"
+        end
         
         before :only => [:hoge, :fuga] do
           @messages << "hoge, fuga"
@@ -122,6 +126,10 @@ describe 'Filterの' do
           render :text => @messages.join("\n")
         end
         
+        post 'hoge' do
+          render :text => @messages.join("\n")
+        end
+
         get 'fuga' do
           render :text => @messages.join("\n")
         end
@@ -138,6 +146,10 @@ describe 'Filterの' do
       get '/', :_act => 'hoge'
       last_response.should be_ok
       last_response.body.should == ["all", "hoge", "hoge, fuga"].join("\n")
+
+      post '/', :_act => 'hoge'
+      last_response.should be_ok
+      last_response.body.should == ["all", "hoge", "post hoge", "hoge, fuga"].join("\n")
     end
     
     it ":except で指定されたアクションでは実行されないこと" do
@@ -149,6 +161,10 @@ describe 'Filterの' do
         
         before :except => :hoge do
           @messages << "excluding hoge"
+        end
+
+        before :except => { :hoge => [:post] } do
+          @messages << "excluding post hoge"
         end
         
         before :except => [:hoge, :fuga] do
@@ -163,6 +179,10 @@ describe 'Filterの' do
           render :text => @messages.join("\n")
         end
         
+        post 'hoge' do
+          render :text => @messages.join("\n")
+        end
+
         get 'fuga' do
           render :text => @messages.join("\n")
         end
@@ -170,13 +190,17 @@ describe 'Filterの' do
       
       get '/'
       last_response.should be_ok
-      last_response.body.should == ["all", "excluding hoge", "excluding hoge, fuga"].join("\n")
+      last_response.body.should == ["all", "excluding hoge", "excluding post hoge", "excluding hoge, fuga"].join("\n")
       
       get '/', :_act => 'fuga'
       last_response.should be_ok
-      last_response.body.should == ["all", "excluding hoge"].join("\n")
+      last_response.body.should == ["all", "excluding hoge", "excluding post hoge"].join("\n")
       
       get '/', :_act => 'hoge'
+      last_response.should be_ok
+      last_response.body.should == ["all", "excluding post hoge"].join("\n")
+
+      post '/', :_act => 'hoge'
       last_response.should be_ok
       last_response.body.should == ["all"].join("\n")
     end

@@ -12,6 +12,27 @@ require 'uri'
 require 'mizinco/config'
 require 'mizinco/helper'
 
+class Rack::RequestFix
+  def initialize(app)
+    @app = app
+  end
+
+  def call(env)
+    if env['rack.input'].respond_to?(:rewind) && !env['rack.input'].respond_to?(:rewind_with_rescue)
+      env['rack.input'].instance_eval do
+        alias :rewind_without_rescue :rewind
+        def rewind_with_rescue(*args)
+          rewind_without_rescue(*args)
+        rescue Errno::ESPIPE
+          # Handles exceptions raised by input streams that cannot be rewound
+        end
+        alias :rewind :rewind_with_rescue
+      end
+    end
+    @app.call(env)
+  end
+end
+
 require 'benchmark'
 class Rack::Benchmark
   def initialize(app)
@@ -128,17 +149,53 @@ module Mizinco
       end
 
       def before(options = { }, &block)
-        options[:only] = [options[:only]].flatten.compact
-        options[:except] = [options[:except]].flatten.compact
-        
-        @before_filters << [options, block]
+        attrs = { }
+        [:only, :except].each do |optname|
+          options[optname] = (options[optname] && options[optname].is_a?(Array) ? options[optname] : [options[optname]]).compact
+          array = []
+          options[optname].each do |item|
+            case item
+            when Hash
+              item.each do |k, v|
+                (v.is_a?(Array) ? v : [v]).compact.each do |m|
+                  array << "#{m} #{k}"
+                end
+              end
+            else
+              [:get, :post, :put, :delete].each do |m|
+                array << "#{m} #{item}"
+              end
+            end
+          end
+          attrs[optname] = array
+        end
+
+        @before_filters << [attrs, block]
       end
 
       def after(options = { }, &block)
-        options[:only] = [options[:only]].flatten.compact
-        options[:except] = [options[:except]].flatten.compact
-        
-        @after_filters << [options, block]
+        attrs = { }
+        [:only, :except].each do |optname|
+          options[optname] = (options[optname] && options[optname].is_a?(Array) ? options[optname] : [options[optname]]).compact
+          array = []
+          options[optname].each do |item|
+            case item
+            when Hash
+              item.each do |k, v|
+                (v.is_a?(Array) ? v : [v]).compact.each do |m|
+                  array << "#{m} #{item}"
+                end
+              end
+            else
+              [:get, :post, :put, :delete].each do |m|
+                array << "#{m} #{item}"
+              end
+            end
+          end
+          attrs[optname] = array
+        end
+
+        @after_filters << [attrs, block]
       end
 
       def run!(&block)
@@ -161,6 +218,7 @@ module Mizinco
       alias :_new :new
       def new(*args, &block)
         builder = Rack::Builder.new
+        builder.use Rack::RequestFix
         builder.use Rack::Benchmark
         middleware.each { |c,a,b| builder.use(c, *a, &b) }
         builder.run super
@@ -180,18 +238,6 @@ module Mizinco
     def call(env)
       @res = Rack::Response.new
       @req = Rack::Request.new(env)
-
-      if @req.env['rack.input'].respond_to?(:rewind) && !@req.env['rack.input'].respond_to?(:rewind_with_rescue)
-        @req.env['rack.input'].instance_eval do
-          alias :rewind_without_rescue :rewind
-          def rewind_with_rescue(*args)
-            rewind_without_rescue(*args)
-          rescue Errno::ESPIPE
-            # Handles exceptions raised by input streams that cannot be rewound
-          end
-          alias :rewind :rewind_with_rescue
-        end
-      end
       
       act = @req['_act'] || 'index'
       execute(act)
@@ -233,16 +279,16 @@ module Mizinco
 
       begin
         self.class.before_filters.each do |options, block|
-          next unless options[:only].empty? || options[:only].include?(@act)
-          next unless options[:except].empty? || !options[:except].include?(@act)
+          next unless options[:only].empty? || options[:only].include?("#{request_method} #{@act}")
+          next unless options[:except].empty? || !options[:except].include?("#{request_method} #{@act}")
           raise FilterChainHaltedError.new if instance_eval(&block) == false
         end
         ret = instance_eval(&proc)
         render if @res.empty?
 
         self.class.after_filters.each do |options, block|       
-          next unless options[:only].empty? || options[:only].include?(@act)
-          next unless options[:except].empty? || !options[:except].include?(@act)
+          next unless options[:only].empty? || options[:only].include?("#{request_method} #{@act}")
+          next unless options[:except].empty? || !options[:except].include?("#{request_method} #{@act}")
           raise FilterChainHaltedError.new if instance_eval(&block) == false
         end
       rescue FilterChainHaltedError => e
